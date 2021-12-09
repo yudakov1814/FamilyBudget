@@ -7,18 +7,13 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using FamilyBudget.Data;
 using FamilyBudget.Models;
-using FamilyBudget.Extensions;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
 
 namespace FamilyBudget.Controllers
 {
-    [Authorize]
     public class ProjectMembersController : Controller
     {
         private readonly ApplicationDbContext _context;
 
-        private IdentityUser user { get { return CurrentUser(); } }
         public ProjectMembersController(ApplicationDbContext context)
         {
             _context = context;
@@ -27,12 +22,8 @@ namespace FamilyBudget.Controllers
         // GET: ProjectMembers
         public async Task<IActionResult> Index()
         {
-            var all_project_members = await _context.ProjectMembers
-                .Include(p => p.Project)
-                .Include(p => p.User).ToListAsync();
-
-            var viewable_project_members = all_project_members.Where(x => user.CanView(x, _context)).ToList();
-            return View(viewable_project_members);
+            var applicationDbContext = _context.ProjectMembers.Include(p => p.Project).Include(p => p.User);
+            return View(await applicationDbContext.ToListAsync());
         }
 
         // GET: ProjectMembers/Details/5
@@ -52,19 +43,14 @@ namespace FamilyBudget.Controllers
                 return NotFound();
             }
 
-            if (!user.CanView(projectMember, _context))
-            {
-                return Forbid();
-            }
-
             return View(projectMember);
         }
 
         // GET: ProjectMembers/Create
         public IActionResult Create()
         {
-            ViewData["ProjectId"] = new SelectList(_context.Projects.ToList().Where(p => user.CanEdit(p,_context)), "Id", "Name");
-            ViewData["UserId"] = new SelectList(_context.Users.Where(c => c.Id == user.Id), "Id", "Id");
+            ViewData["ProjectId"] = new SelectList(_context.Projects, "Id", "Name");
+            ViewData["UserId"] = new SelectList(_context.Users, "Id", "Id");
             return View();
         }
 
@@ -101,12 +87,6 @@ namespace FamilyBudget.Controllers
             {
                 return NotFound();
             }
-
-            if (!user.CanEdit(projectMember, _context))
-            {
-                return Forbid();
-            }
-
             ViewData["ProjectId"] = new SelectList(_context.Projects, "Id", "Name", projectMember.ProjectId);
             ViewData["UserId"] = new SelectList(_context.Users, "Id", "Id", projectMember.UserId);
             return View(projectMember);
@@ -167,11 +147,6 @@ namespace FamilyBudget.Controllers
                 return NotFound();
             }
 
-            if (!user.CanDelete(projectMember, _context))
-            {
-                return Forbid();
-            }
-
             return View(projectMember);
         }
 
@@ -189,12 +164,6 @@ namespace FamilyBudget.Controllers
         private bool ProjectMemberExists(int id)
         {
             return _context.ProjectMembers.Any(e => e.Id == id);
-        }
-        private IdentityUser CurrentUser()
-        {
-            var username = HttpContext.User.Identity.Name;
-            return _context.Users
-                .FirstOrDefault(m => m.UserName == username);
         }
     }
 }
